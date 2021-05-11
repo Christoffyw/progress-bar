@@ -1,0 +1,71 @@
+.vscode/
+
+build.bat
+
+libs/
+
+obj/
+
+Quest Trick Saber.zip
+
+libtricksaber.so
+
+*.7z
+
+*.log
+*.zip
+qpm.shared.json
+cmake-build-debug/
+extern/
+linedebug.bat
+ndkpath.txt
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# VSCode config stuff
+!.vscode/c_cpp_properties.json
+!.vscode/tasks.json
+
+# NDK stuff
+out/
+[Ll]ib/
+[Ll]ibs/
+[Oo]bj/
+[Oo]bjs/
+
+extern
+
+Android.mk.backup
+*.txt
+*.qmod
