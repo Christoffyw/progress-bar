@@ -1,5 +1,5 @@
 # Progress Bar Mod for Beat Saber 1.15
-A beat saber mod for quest that tweaks some of the UI in game.
+Replaces health bar with a progress bar showing how far you are in the song. Health bar is replaces with a pulsing heart that shows a number of how much health you have left
 
 # Settings
 There are a couple change you can make to the mod ingame in the mod settings.
