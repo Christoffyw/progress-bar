@@ -5,9 +5,6 @@ using namespace UnityEngine;
 
 DECLARE_CLASS_CODEGEN(TestMod, TextUpdater, UnityEngine::MonoBehaviour,
 
-    DECLARE_METHOD(void, Update);
-
-    REGISTER_FUNCTION(
-        REGISTER_METHOD(Update);
-    )
+    DECLARE_INSTANCE_METHOD(void, Update);
+    
 )

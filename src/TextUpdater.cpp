@@ -58,25 +58,14 @@ custom_types::Helpers::Coroutine coroutine() {
     co_return;
 }
 
-DEFINE_TYPE(TestMod::TextUpdater);
+DEFINE_TYPE(TestMod, TextUpdater);
 
-MAKE_HOOK_OFFSETLESS(SongStart, void,
-        Il2CppObject* self,
-        Il2CppString* gameMode,
-        Il2CppObject* difficultyBeatmap,
-        Il2CppObject* previewBeatmapLevel,
-        Il2CppObject* overrideEnvironmentSettings,
-        Il2CppObject* overrideColorScheme,
-        Il2CppObject* gameplayModifiers,
-        Il2CppObject* playerSpecificSettings,
-        PracticeSettings* practiceSettings,
-        Il2CppString* backButtonText,
-        bool useTestNoteCutSoundEffects) {
+MAKE_HOOK_MATCH(SongStart, &AudioTimeSyncController::StartSong, void, AudioTimeSyncController* self, float startTimeOffset) {
     getLogger().info("Song Started");
-
+    
     GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(coroutine())));
 
-    SongStart(self, gameMode, difficultyBeatmap, previewBeatmapLevel, overrideEnvironmentSettings, overrideColorScheme, gameplayModifiers, playerSpecificSettings, practiceSettings, backButtonText, useTestNoteCutSoundEffects);
+    SongStart(self, startTimeOffset);
 }
 
 custom_types::Helpers::Coroutine disableSongProgress() {
@@ -116,32 +105,22 @@ custom_types::Helpers::Coroutine disableEnergyIcons() {
     co_return;
 }
 
-MAKE_HOOK_OFFSETLESS(CoreGameHUDController_Start, void, GlobalNamespace::CoreGameHUDController* self) {
-
-    auto rightPanel = UnityEngine::GameObject::Find(il2cpp_utils::newcsstr("RightPanel"));
+MAKE_HOOK_MATCH(CoreGameHUDController_Start, &CoreGameHUDController::Start, void, GlobalNamespace::CoreGameHUDController* self) {
     auto EnergyPanel = UnityEngine::GameObject::Find(il2cpp_utils::newcsstr("EnergyPanel"));
 
     if(EnergyPanel != nullptr) {
         energyPanel = EnergyPanel;
         if(energyPanel != nullptr) {
-
             GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(disableEnergyIcons())));
         }
     }
-
-    if(rightPanel != nullptr) {
-        panel = rightPanel;
-        if(panel != nullptr) {
-            UnityEngine::Transform* transform = TextUI->get_transform();
-            transform->set_position(UnityEngine::Vector3(panel->get_transform()->get_position().x + 2.65, panel->get_transform()->get_position().y - 0.4, panel->get_transform()->get_position().z));
-        }
-        GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(disableSongProgress())));
-    }
+    
+    TextUI = nullptr;
 
     CoreGameHUDController_Start(self);
 }
 
-MAKE_HOOK_OFFSETLESS(SongEnd, void, Il2CppObject* self) {
+MAKE_HOOK_MATCH(SongEnd, &AudioTimeSyncController::StopSong, void, AudioTimeSyncController* self) {
     getLogger().info("Song Ended");
 
     inLevel = false;
@@ -176,7 +155,7 @@ void SetColor(float energy) {
     }
 }
 
-MAKE_HOOK_OFFSETLESS(GameEnergyUIPanel_HandleGameEnergyDidChange, void, GameEnergyUIPanel* self, float energy) {
+MAKE_HOOK_MATCH(GameEnergyUIPanel_HandleGameEnergyDidChange, &GameEnergyUIPanel::HandleGameEnergyDidChange, void, GameEnergyUIPanel* self, float energy) {
     
     
     GameEnergyUIPanel_HandleGameEnergyDidChange(self, energy);
@@ -186,7 +165,20 @@ MAKE_HOOK_OFFSETLESS(GameEnergyUIPanel_HandleGameEnergyDidChange, void, GameEner
 
 void TestMod::TextUpdater::Update() {
     if(inLevel) {
-        TextUI = get_gameObject();
+        if(!TextUI) {
+            TextUI = get_gameObject();
+            auto rightPanel = UnityEngine::GameObject::Find(il2cpp_utils::newcsstr("RightPanel"));
+            if(rightPanel != nullptr) {
+                panel = rightPanel;
+                if(panel != nullptr) {
+                    UnityEngine::Transform* transform = TextUI->get_transform();
+                    if(transform != nullptr)
+                        transform->set_position(UnityEngine::Vector3(panel->get_transform()->get_position().x + 2.65, panel->get_transform()->get_position().y - 0.4, panel->get_transform()->get_position().z));
+                }
+            GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(disableSongProgress())));
+            }
+        }
+        
         auto text = get_gameObject()->GetComponent<TextMeshProUGUI*>();
         text->set_text(il2cpp_utils::newcsstr(std::to_string(health) + " HP"));
         text->set_fontSize(4);
@@ -200,8 +192,8 @@ void TestMod::TextUpdater::Update() {
 }
 
 void TestMod::InstallHooks() {
-    INSTALL_HOOK_OFFSETLESS(getLogger(), SongStart, il2cpp_utils::FindMethodUnsafe("", "StandardLevelScenesTransitionSetupDataSO", "Init", 10));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), SongEnd, il2cpp_utils::FindMethodUnsafe("", "StandardLevelGameplayManager", "OnDestroy", 0));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), GameEnergyUIPanel_HandleGameEnergyDidChange, il2cpp_utils::FindMethodUnsafe("", "GameEnergyUIPanel", "HandleGameEnergyDidChange", 1));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), CoreGameHUDController_Start, il2cpp_utils::FindMethodUnsafe("", "CoreGameHUDController", "Start", 0));
+    INSTALL_HOOK(getLogger(), SongStart);
+    INSTALL_HOOK(getLogger(), SongEnd);
+    INSTALL_HOOK(getLogger(), GameEnergyUIPanel_HandleGameEnergyDidChange);
+    INSTALL_HOOK(getLogger(), CoreGameHUDController_Start);
 }

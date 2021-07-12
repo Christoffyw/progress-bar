@@ -1,4 +1,4 @@
-$buildScript = "E:/BSMG/Android/android-ndk-r21e/build/ndk-build"
+$buildScript = "E:/BSMG/Android/android-ndk-r22b/build/ndk-build"
 if (-not ($PSVersionTable.PSEdition -eq "Core")) {
     $buildScript += ".cmd"
 }

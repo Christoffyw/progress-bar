@@ -1,6 +1,7 @@
 #include "main.hpp"
 #include "hooks.hpp"
 #include "PluginConfig.hpp"
+#
 using namespace TestMod;
 
 #include "ImageUpdater.hpp"
@@ -13,6 +14,8 @@ using namespace TestMod;
 #include "UnityEngine/SceneManagement/SceneManager.hpp"
 #include "GlobalNamespace/PracticeSettings.hpp"
 #include "GlobalNamespace/NoteCutInfo.hpp"
+#include "GlobalNamespace/NoteController.hpp"
+#include "GlobalNamespace/AudioTimeSyncController.hpp"
 using namespace GlobalNamespace;
 #include <iostream>
 #include <string>
@@ -52,28 +55,17 @@ custom_types::Helpers::Coroutine imagecoroutine() {
     co_return;
 }
 
-DEFINE_TYPE(TestMod::ImageUpdater);
+DEFINE_TYPE(TestMod, ImageUpdater);
 
-MAKE_HOOK_OFFSETLESS(ImageSongStart, void,
-        Il2CppObject* self,
-        Il2CppString* gameMode,
-        Il2CppObject* difficultyBeatmap,
-        Il2CppObject* previewBeatmapLevel,
-        Il2CppObject* overrideEnvironmentSettings,
-        Il2CppObject* overrideColorScheme,
-        Il2CppObject* gameplayModifiers,
-        Il2CppObject* playerSpecificSettings,
-        PracticeSettings* practiceSettings,
-        Il2CppString* backButtonText,
-        bool useTestNoteCutSoundEffects) {
+MAKE_HOOK_MATCH(ImageSongStart, &AudioTimeSyncController::StartSong, void, AudioTimeSyncController* self, float startTimeOffset) {
     getLogger().info("Song Started");
     
     GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(imagecoroutine())));
 
-    ImageSongStart(self, gameMode, difficultyBeatmap, previewBeatmapLevel, overrideEnvironmentSettings, overrideColorScheme, gameplayModifiers, playerSpecificSettings, practiceSettings, backButtonText, useTestNoteCutSoundEffects);
+    ImageSongStart(self, startTimeOffset);
 }
 
-MAKE_HOOK_OFFSETLESS(ImageSongEnd, void, Il2CppObject* self) {
+MAKE_HOOK_MATCH(ImageSongEnd, &AudioTimeSyncController::StopSong, void, AudioTimeSyncController* self) {
     getLogger().info("Song Ended");
 
     imageinLevel = false;
@@ -110,26 +102,13 @@ void ImageSetColor(float energy) {
     }
 }
 
-MAKE_HOOK_OFFSETLESS(ImageGameEnergyUIPanel_HandleGameEnergyDidChange, void, GameEnergyUIPanel* self, float energy) {
+MAKE_HOOK_MATCH(ImageGameEnergyUIPanel_HandleGameEnergyDidChange, &GameEnergyUIPanel::HandleGameEnergyDidChange, void, GameEnergyUIPanel* self, float energy) {
     
     
     ImageGameEnergyUIPanel_HandleGameEnergyDidChange(self, energy);
-    getLogger().info(std::to_string(energy));
     ImageSetColor(energy);
 }
 
-MAKE_HOOK_OFFSETLESS(ImageCoreGameHUDController_Start, void, GlobalNamespace::CoreGameHUDController* self) {
-    auto imagerightPanel = UnityEngine::GameObject::Find(il2cpp_utils::newcsstr("RightPanel"));
-    if(imagerightPanel != nullptr) {
-        imagePanel = imagerightPanel;
-        if(imagePanel != nullptr) {
-            UnityEngine::Transform* imageTransform = imageUI->get_transform();
-            imageTransform->set_position(UnityEngine::Vector3(imagePanel->get_transform()->get_position().x, imagePanel->get_transform()->get_position().y + 0.4, imagePanel->get_transform()->get_position().z));
-        }
-    }
-
-    ImageCoreGameHUDController_Start(self);
-}
 
 custom_types::Helpers::Coroutine imageAnimation() {
     co_yield reinterpret_cast<System::Collections::IEnumerator*>(CRASH_UNLESS(WaitForSeconds::New_ctor(0.01)));
@@ -160,9 +139,9 @@ custom_types::Helpers::Coroutine imageAnimation() {
 }
 
 
-MAKE_HOOK_OFFSETLESS(NoteController_SendNoteWasCutEvent, void, NoteController* self, NoteCutInfo* noteCutInfo) {
+MAKE_HOOK_MATCH(NoteController_SendNoteWasCutEvent, &NoteController::SendNoteWasCutEvent, void, GlobalNamespace::NoteController* self, GlobalNamespace::NoteCutInfo& noteCutInfo) {
     
-    if(noteCutInfo->get_allIsOK()) {
+    if(noteCutInfo.get_allIsOK()) {
         if (getPluginConfig().AnimatedHeart.GetValue()) {
             GlobalNamespace::SharedCoroutineStarter::get_instance()->StartCoroutine(reinterpret_cast<custom_types::Helpers::enumeratorT*>(custom_types::Helpers::CoroutineHelper::New(imageAnimation())));
         }
@@ -171,11 +150,28 @@ MAKE_HOOK_OFFSETLESS(NoteController_SendNoteWasCutEvent, void, NoteController* s
     NoteController_SendNoteWasCutEvent(self, noteCutInfo);
 }
 
+MAKE_HOOK_MATCH(ImageCoreGameHUDController_Start, &CoreGameHUDController::Start, void, GlobalNamespace::CoreGameHUDController* self) {
+	imageUI = nullptr;
+    
+    ImageCoreGameHUDController_Start(self);
+}
 
 void TestMod::ImageUpdater::Update() {
     auto uiImage = get_gameObject()->GetComponent<UnityEngine::UI::Image*>();
     if(imageinLevel) {
-        imageUI = get_gameObject();
+		if(!imageUI) {
+			imageUI = get_gameObject();
+			auto imagePanel = UnityEngine::GameObject::Find(il2cpp_utils::newcsstr("RightPanel"));
+			if(imagePanel) {
+				UnityEngine::Transform* imageUITransform = imageUI->get_transform();
+				UnityEngine::Transform* imagePanelTransform = imagePanel->get_transform();
+				if(imageUITransform && imagePanelTransform) {
+					auto imagePanelPos = imagePanelTransform->get_position();
+					imagePanelPos.y += 0.4f;
+					imageUITransform->set_position(imagePanelPos);
+				}
+			}
+		}
         imageColor.a = 1;
     }
     else {
@@ -188,9 +184,9 @@ void TestMod::ImageUpdater::Update() {
 }
 
 void TestMod::InstallImageHooks() {
-    INSTALL_HOOK_OFFSETLESS(getLogger(), ImageSongStart, il2cpp_utils::FindMethodUnsafe("", "StandardLevelScenesTransitionSetupDataSO", "Init", 10));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), ImageSongEnd, il2cpp_utils::FindMethodUnsafe("", "StandardLevelGameplayManager", "OnDestroy", 0));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), ImageGameEnergyUIPanel_HandleGameEnergyDidChange, il2cpp_utils::FindMethodUnsafe("", "GameEnergyUIPanel", "HandleGameEnergyDidChange", 1));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), ImageCoreGameHUDController_Start, il2cpp_utils::FindMethodUnsafe("", "CoreGameHUDController", "Start", 0));
-    INSTALL_HOOK_OFFSETLESS(getLogger(), NoteController_SendNoteWasCutEvent, il2cpp_utils::FindMethodUnsafe("", "NoteController", "SendNoteWasCutEvent", 1));    
+    INSTALL_HOOK(getLogger(), ImageSongStart);
+    INSTALL_HOOK(getLogger(), ImageSongEnd);
+    INSTALL_HOOK(getLogger(), ImageGameEnergyUIPanel_HandleGameEnergyDidChange);
+    INSTALL_HOOK(getLogger(), ImageCoreGameHUDController_Start);
+    INSTALL_HOOK(getLogger(), NoteController_SendNoteWasCutEvent);    
 }

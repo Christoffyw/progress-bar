@@ -8,6 +8,7 @@
 #include "UnityEngine/UI/LayoutElement.hpp"
 #include "UnityEngine/CanvasRenderer.hpp"
 #include "UnityEngine/Object.hpp"
+#include "UnityEngine/Color.hpp"
 #include "questui/shared/QuestUI.hpp"
 #include "questui/shared/BeatSaberUI.hpp"
 #include "UnityEngine/Canvas.hpp"
@@ -59,12 +60,15 @@ extern "C" void setup(ModInfo& info) {
     getLogger().info("Completed setup!");
 }
 
+UnityEngine::Color hideColor;
 
 UnityEngine::Canvas* canvas;
 UnityEngine::UI::VerticalLayoutGroup* layout;
+UnityEngine::UI::Image* postedImage;
+TMPro::TextMeshProUGUI* postedText;
 
 #include "GlobalNamespace/MainMenuViewController.hpp"
-MAKE_HOOK_OFFSETLESS(MainMenuViewController_DidActivate, void, GlobalNamespace::MainMenuViewController* self, bool firstActivation, bool addedToHierarchy, bool screenSystemEnabling) {
+MAKE_HOOK_MATCH(MainMenuViewController_DidActivate, &GlobalNamespace::MainMenuViewController::DidActivate, void, GlobalNamespace::MainMenuViewController* self, bool firstActivation, bool addedToHierarchy, bool screenSystemEnabling) {
     MainMenuViewController_DidActivate(self, firstActivation, addedToHierarchy, screenSystemEnabling);
 
   if (firstActivation) {
@@ -95,6 +99,8 @@ MAKE_HOOK_OFFSETLESS(MainMenuViewController_DidActivate, void, GlobalNamespace::
     auto text = hp_text->get_gameObject()->GetComponent<TMPro::TextMeshProUGUI*>();
     auto image = hp_image->get_gameObject()->GetComponent<UnityEngine::UI::Image*>();
     text->set_text(il2cpp_utils::newcsstr("0 HP"));
+    postedImage = image;
+    postedText = text;
   }
   canvas->get_gameObject()->SetActive(true);
 }
@@ -126,12 +132,11 @@ extern "C" void load() {
   il2cpp_functions::Init();
   QuestUI::Init();
 
-  custom_types::Register::RegisterType<TestMod::TextUpdater>();
-  custom_types::Register::RegisterType<TestMod::ImageUpdater>();
+  custom_types::Register::AutoRegister();
 
   TestMod::InstallHooks();
   TestMod::InstallImageHooks();
   QuestUI::Register::RegisterModSettingsViewController(modInfo, DidActivate);
 
-  INSTALL_HOOK_OFFSETLESS(getLogger(), MainMenuViewController_DidActivate, il2cpp_utils::FindMethodUnsafe("", "MainMenuViewController", "DidActivate", 3));
+  INSTALL_HOOK(getLogger(), MainMenuViewController_DidActivate);
 }
